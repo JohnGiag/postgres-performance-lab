@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: pg-perf-lab
+    environment:
+      POSTGRES_USER: lab
+      POSTGRES_PASSWORD: lab
+      POSTGRES_DB: perf_lab
+    ports:
+      - "127.0.0.1:5433:5432" # localhost only: lab/lab is a superuser; 5433 avoids clashing with a local Postgres
+    shm_size: 1gb # Docker's 64MB default breaks parallel queries on big tables
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - effective_cache_size=1536MB
+      - -c
+      - work_mem=32MB
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - max_wal_size=4GB
+      - -c
+      - synchronous_commit=off # local lab only: faster bulk loads, risks last commits on crash
+      - -c
+      - random_page_cost=1.1 # SSD
+      - -c
+      - track_io_timing=on # adds I/O timings to EXPLAIN (BUFFERS)
+      - -c
+      - jit=off # JIT compile time would add noise to the seq-scan baselines
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab -d perf_lab"]
+      interval: 2s
+      retries: 15
+
+volumes:
+  pgdata:
